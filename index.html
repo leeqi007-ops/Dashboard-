@@ -925,19 +925,33 @@ function fetchSymbolQuote(s){
   return first.catch(function(){ if(!st) throw 0; return fetchStooqQuote(st); });
 }
 var stockFetching = false;
+var stockRetryTimer = null;
+var STOCK_COOLDOWN = 3*60*1000;   // 成功更新後 3 分鐘內不重複抓（手動按鈕不受限）
 function runStockFetch(manual){
   if(stockFetching || !cfg) return;
-  var jobs = [];
+  if(!manual){
+    var last = parseInt(localStorage.getItem("wx_stock_ok_at")||"0",10);
+    if(Date.now() - last < STOCK_COOLDOWN) return;   // 剛成功更新過，安靜跳過
+  }
+  var list = [];
   cfg.symbols.forEach(function(s, i){
-    if(!yahooSymbol(s) && !stooqTicker(s)) return;
-    jobs.push(fetchSymbolQuote(s).then(function(res){ return {i:i, res:res}; }).catch(function(){ return {i:i, res:null}; }));
+    if(yahooSymbol(s) || stooqTicker(s)) list.push({ s:s, i:i });
   });
-  if(!jobs.length) return;
+  if(!list.length) return;
   stockFetching = true;
   var btn = document.getElementById("btnFetch"), icon = document.getElementById("fetchIcon");
   if(btn) btn.disabled = true;
   if(icon){ icon.innerHTML = IC.refresh; if(icon.firstChild) icon.firstChild.classList.add("spin"); }
-  Promise.all(jobs).then(function(results){
+  var results = [];
+  function next(k){                                   // 逐檔間隔抓取，降低被限流機率
+    if(k >= list.length) return Promise.resolve();
+    return fetchSymbolQuote(list[k].s)
+      .then(function(res){ results.push({ i:list[k].i, res:res }); })
+      .catch(function(){ results.push({ i:list[k].i, res:null }); })
+      .then(function(){ return new Promise(function(rs){ setTimeout(rs, 450); }); })
+      .then(function(){ return next(k+1); });
+  }
+  next(0).then(function(){
     var rolled=[], refreshed=[], failed=[], ops=[];
     results.forEach(function(r){
       var s = cfg.symbols[r.i];
@@ -962,14 +976,19 @@ function runStockFetch(manual){
         });
       });
     }
+    if(failed.length===0){
+      try{ localStorage.setItem("wx_stock_ok_at", String(Date.now())); }catch(e){}
+    } else if(!manual && !stockRetryTimer){          // 自動模式失敗：90 秒後安靜再試一次
+      stockRetryTimer = setTimeout(function(){ stockRetryTimer=null; runStockFetch(false); }, 90000);
+    }
     var msg=[];
     if(rolled.length) msg.push("新交易日，前日收盤已自動推進："+rolled.join("、"));
     if(refreshed.length) msg.push("已更新："+refreshed.join("、"));
-    if(failed.length) msg.push("未取得："+failed.join("、"));
+    if(failed.length) msg.push("來源忙碌，暫未取得："+failed.join("、")+(manual?"（公用通道限流中，請過 1～2 分鐘再按）":"（沿用現有數字，稍後自動再試）"));
     if(msg.length) showSync("股價 · "+msg.join("｜"));
     else if(manual) showSync("股價已是最新");
   }).catch(function(){
-    if(manual) showSync("股價抓取失敗，沿用現有數字");
+    if(manual) showSync("股價抓取失敗，沿用現有數字（請過 1～2 分鐘再試）");
   }).finally(function(){
     stockFetching=false;
     if(btn) btn.disabled=false;
@@ -984,7 +1003,7 @@ function fetchPrices(){               // 右上「更新股價」鈕：全自動
   if(cfg && cfg.stockMode==="manual"){ showSync("股價目前為手動模式（可在後台調整）"); return; }
   runStockFetch(true);
 }
-function autoFetchOnOpen(){ fetchFxRates(); fetchStockAuto(); }
+function autoFetchOnOpen(){ fetchFxRates(); setTimeout(fetchStockAuto, 700); }
 
 /* ====== 匯率自動更新（三來源．依順位嘗試） ====== */
 var FX_NAMES = { bot:"台銀牌告即期中間價", er:"市場中間價 A", cc:"市場中間價 B" };
