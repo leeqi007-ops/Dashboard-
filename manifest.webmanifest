@@ -1,0 +1,14 @@
+{
+  "name": "星展帳戶 · 合併資產",
+  "short_name": "合併資產",
+  "description": "家庭資產合併儀表板：即時估值、月結單與自動報價",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14100B",
+  "theme_color": "#14100B",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

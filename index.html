@@ -4,6 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>星展帳戶 · 合併資產</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#14100B">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="合併資產">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -1095,6 +1102,11 @@ function startApp(){
   document.querySelectorAll(".wx-tab").forEach(function(b){ b.addEventListener("click", function(){ switchPage(b.getAttribute("data-page")); }); });
 
   startCloudSync();
+
+  // PWA：註冊離線快取（不支援的環境會安靜略過）
+  if("serviceWorker" in navigator){
+    try{ navigator.serviceWorker.register("./sw.js"); }catch(e){}
+  }
 }
 
 /* ====== 雲端即時同步 ====== */
